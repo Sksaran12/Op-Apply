@@ -1,0 +1,103 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply font-body bg-slate-50 text-slate-800 dark:bg-navy dark:text-slate-100 transition-colors duration-300;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-heading font-bold tracking-wide text-slate-900 dark:text-white transition-colors duration-300;
+  }
+}
+
+/* Layered Card panel (Static Premium Obsidian Glassmorphism) */
+.glass-panel {
+  background: rgba(11, 15, 28, 0.45);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  color: #f8fafc;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-panel:hover {
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+/* Background Grid Overlay */
+.grid-overlay {
+  background-image: linear-gradient(to right, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+                    linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* Custom glow classes mapped dynamically based on selected exam code */
+.glow-NEET {
+  border-top: 4px solid #ef4444;
+}
+.glow-NEET:hover {
+  box-shadow: 0 0 30px rgba(239, 68, 68, 0.25);
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+.glow-JEE {
+  border-top: 4px solid #0ea5e9;
+}
+.glow-JEE:hover {
+  box-shadow: 0 0 30px rgba(14, 165, 233, 0.25);
+  border-color: rgba(14, 165, 233, 0.4);
+}
+
+.glow-UGC_NET {
+  border-top: 4px solid #6366f1;
+}
+.glow-UGC_NET:hover {
+  box-shadow: 0 0 30px rgba(99, 102, 241, 0.25);
+  border-color: rgba(99, 102, 241, 0.4);
+}
+
+.glow-SLET {
+  border-top: 4px solid #10b981;
+}
+.glow-SLET:hover {
+  box-shadow: 0 0 30px rgba(16, 185, 129, 0.25);
+  border-color: rgba(16, 185, 129, 0.4);
+}
+
+.glow-SSC {
+  border-top: 4px solid #eab308;
+}
+.glow-SSC:hover {
+  box-shadow: 0 0 30px rgba(234, 179, 8, 0.25);
+  border-color: rgba(234, 179, 8, 0.4);
+}
+
+.glow-APSC {
+  border-top: 4px solid #a855f7;
+}
+.glow-APSC:hover {
+  box-shadow: 0 0 30px rgba(168, 85, 247, 0.25);
+  border-color: rgba(168, 85, 247, 0.4);
+}
+
+/* Subtle micro-animations fallback in CSS */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+@keyframes pulse-saffron {
+  0%, 100% { box-shadow: 0 0 0px rgba(255, 153, 51, 0); }
+  50% { box-shadow: 0 0 25px rgba(255, 153, 51, 0.5); }
+}
+
+.animate-pulse-saffron {
+  animation: pulse-saffron 3s infinite ease-in-out;
+}

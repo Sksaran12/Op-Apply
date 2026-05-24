@@ -1,0 +1,12 @@
+{
+  "name": "op-apply-root",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "node run-dev.js",
+    "install:all": "npm install --prefix backend && npm install --prefix frontend"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2"
+  }
+}
