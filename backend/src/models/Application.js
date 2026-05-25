@@ -11,7 +11,7 @@ const applicationSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
-  examId: {
+  exam: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Exam',
     required: true
@@ -29,7 +29,7 @@ const applicationSchema = new mongoose.Schema({
 });
 
 // Ensure a user can only apply to an exam once (compound index)
-applicationSchema.index({ userId: 1, examId: 1 }, { unique: true });
+applicationSchema.index({ userId: 1, exam: 1 }, { unique: true });
 
 const Application = mongoose.model('Application', applicationSchema);
 export default Application;

@@ -200,7 +200,7 @@ export const startDeadlineReminderCron = () => {
       
       for (const exam of closingExams) {
         // Find users who have applied for this exam
-        const appliedUsers = await Application.find({ examId: exam._id }).distinct('userId');
+        const appliedUsers = await Application.find({ exam: exam._id }).distinct('userId');
 
         // Find users who have NOT applied for this exam
         const users = await User.find({

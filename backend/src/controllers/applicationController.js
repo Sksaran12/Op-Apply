@@ -39,7 +39,7 @@ export const submitApplication = async (req, res) => {
     // 4. Check if application already exists for this user and exam
     const existingApplication = await Application.findOne({
       userId: req.user._id,
-      examId
+      exam: examId
     });
 
     if (existingApplication) {
@@ -60,7 +60,7 @@ export const submitApplication = async (req, res) => {
     const application = new Application({
       applicationNumber,
       userId: req.user._id,
-      examId,
+      exam: examId,
       status: 'APPLIED'
     });
     await application.save();
