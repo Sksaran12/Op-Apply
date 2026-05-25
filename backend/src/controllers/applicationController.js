@@ -213,3 +213,27 @@ export const downloadAdmitCard = async (req, res) => {
     return res.status(500).json({ message: 'Server error downloading admit card PDF' });
   }
 };
+
+export const deleteApplication = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const application = await Application.findById(id);
+
+    if (!application) {
+      return res.status(404).json({ message: 'Application not found' });
+    }
+
+    // Confirm ownership
+    if (application.userId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    await Application.deleteOne({ _id: id });
+
+    return res.json({ message: 'Application successfully removed' });
+  } catch (error) {
+    console.error('[Delete Application Error]', error);
+    return res.status(500).json({ message: 'Server error deleting application' });
+  }
+};

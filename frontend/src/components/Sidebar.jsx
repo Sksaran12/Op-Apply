@@ -21,12 +21,18 @@ export default function Sidebar({ activeTab, setActiveTab, onOpenApplyModal, isO
     }`}>
       {/* Profile summary with glowing elements */}
       <div className="px-6 mb-8 flex flex-col items-center text-center">
-        <div className="relative mb-3">
-          <img 
-            src={profile?.photoUrl || 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=150&auto=format&fit=crop'} 
-            alt="Applicant" 
-            className="w-20 h-20 rounded-full object-cover ring-2 ring-saffron/30 p-1 border border-white/10 shadow-lg shadow-saffron/5"
-          />
+        <div className="relative mb-3 flex items-center justify-center">
+          {profile?.photoUrl ? (
+            <img 
+              src={profile.photoUrl} 
+              alt="Applicant" 
+              className="w-20 h-20 rounded-full object-cover ring-2 ring-saffron/30 p-1 border border-white/10 shadow-lg shadow-saffron/5"
+            />
+          ) : (
+            <div className="w-20 h-20 rounded-full bg-slate-900 border border-white/10 ring-2 ring-saffron/30 flex items-center justify-center shadow-lg shadow-saffron/5 text-saffron text-2xl font-bold font-heading">
+              {profile?.fullName ? profile.fullName.charAt(0).toUpperCase() : 'A'}
+            </div>
+          )}
           {profile?.isComplete && (
             <span className="absolute bottom-0 right-1 flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-tr from-indiagreen to-emerald-400 ring-2 ring-slate-950 text-[10px] text-white font-bold">
               ✓

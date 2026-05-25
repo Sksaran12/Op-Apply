@@ -274,6 +274,28 @@ export const useAppStore = create((set, get) => ({
     }
   },
 
+  deleteApplication: async (appId) => {
+    set({ applicationsLoading: true });
+    try {
+      const res = await fetch(`/api/applications/${appId}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
+      const data = await safeParseJson(res);
+
+      if (!res.ok) throw new Error(data.message || 'Failed to remove application');
+
+      // Refresh applications list
+      await get().fetchApplications();
+      
+      set({ applicationsLoading: false });
+      return { success: true, message: data.message };
+    } catch (err) {
+      set({ applicationsLoading: false });
+      return { success: false, message: err.message };
+    }
+  },
+
   // --- NOTIFICATIONS STATE ---
   notifications: [],
   notificationsLoading: false,

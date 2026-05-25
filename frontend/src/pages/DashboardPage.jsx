@@ -21,6 +21,7 @@ export default function DashboardPage() {
     fetchNotifications,
     markNotificationRead,
     submitApplication,
+    deleteApplication,
     applicationsLoading
   } = useAppStore();
 
@@ -174,6 +175,7 @@ export default function DashboardPage() {
                             <th className="px-6 py-4">Ref Number</th>
                             <th className="px-6 py-4">Status</th>
                             <th className="px-6 py-4">Admit Card</th>
+                            <th className="px-6 py-4 text-center">Action</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-white/[0.05] text-sm font-body">
@@ -200,6 +202,23 @@ export default function DashboardPage() {
                                 ) : (
                                   <span className="text-xs text-slate-500 font-semibold italic">Awaiting Issue</span>
                                 )}
+                              </td>
+                              <td className="px-6 py-4 text-center">
+                                <button
+                                  onClick={async () => {
+                                    if (window.confirm(`Are you sure you want to cancel and remove your application for ${app.exam.name}?`)) {
+                                      const res = await deleteApplication(app._id);
+                                      if (res.success) {
+                                        alert(res.message || 'Application successfully removed.');
+                                      } else {
+                                        alert(res.message || 'Failed to remove application.');
+                                      }
+                                    }
+                                  }}
+                                  className="px-3 py-1.5 rounded-lg border border-red-500/20 hover:border-red-500/40 bg-red-500/5 hover:bg-red-500/15 text-red-400 hover:text-red-300 font-heading font-bold text-xs hover:scale-105 active:scale-95 transition-all duration-300"
+                                >
+                                  Cancel
+                                </button>
                               </td>
                             </tr>
                           ))}
@@ -249,81 +268,88 @@ export default function DashboardPage() {
 
                 {/* Notifications Alert Board */}
                 <div className="glass-panel bg-slate-950/45 border border-white/[0.08] rounded-2xl overflow-hidden flex flex-col max-h-[300px]">
-                  <div className="px-6 py-4 bg-white/[0.02] border-b border-white/[0.06] flex items-center justify-between">
-                    <h3 className="font-heading text-lg font-bold text-white">Admissions Alerts</h3>
-                    <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
-                  </div>
-                  <div className="p-4 divide-y divide-white/[0.05] overflow-y-auto flex-1 font-body">
-                    {notifications.length === 0 ? (
-                      <div className="text-center text-xs text-slate-500 py-8">
-                        No recent notifications.
-                      </div>
-                    ) : (
-                      notifications.map((note) => {
-                        const tokenMatch = note.message.match(/verify_token_([a-f0-9]+)/);
-                        const verificationToken = tokenMatch ? tokenMatch[1] : null;
-
-                        return (
-                          <div 
-                            key={note._id} 
-                            className={`py-3 flex justify-between items-start gap-2 ${!note.isRead ? 'bg-white/[0.03] -mx-4 px-4 border-l-2 border-saffron' : ''}`}
-                          >
-                            <div className="flex-1">
-                              <p className="text-xs font-bold text-saffron">{note.title}</p>
-                              <p className="text-xs text-slate-300 mt-0.5 leading-relaxed">
-                                {verificationToken 
-                                  ? note.message.split('verify_token_')[0] + 'Verification System'
-                                  : note.message
-                                }
-                              </p>
-
-                              {verificationToken && !note.isRead && (
-                                <button
-                                  onClick={async () => {
-                                    try {
-                                      const res = await fetch(`/api/auth/verify-email/${verificationToken}`);
-                                      const text = await res.text();
-                                      let data = {};
-                                      try {
-                                        data = JSON.parse(text);
-                                      } catch (e) {
-                                        throw new Error('Server returned an invalid response. Please try again.');
-                                      }
-                                      if (res.ok) {
-                                        alert(data.message || 'Verification successful!');
-                                        await markNotificationRead(note._id);
-                                        useAppStore.getState().checkSession();
-                                      } else {
-                                        alert(data.message || 'Verification failed.');
-                                      }
-                                    } catch (err) {
-                                      console.error(err);
-                                      alert(err.message || 'Failed to verify.');
-                                    }
-                                  }}
-                                  className="mt-2 bg-gradient-to-r from-saffron to-amber-500 hover:from-amber-500 hover:to-saffron text-navy px-3 py-1 rounded font-heading font-extrabold text-[10px] uppercase tracking-wide hover:scale-105 active:scale-95 transition-all shadow-md shadow-saffron/10"
-                                >
-                                  Verify Email Now
-                                </button>
-                              )}
-
-                              <span className="text-[9px] text-slate-500 block mt-1">
-                                {new Date(note.createdAt).toLocaleDateString()}
-                              </span>
+                  {(() => {
+                    const unreadNotes = notifications.filter(n => !n.isRead);
+                    return (
+                      <>
+                        <div className="px-6 py-4 bg-white/[0.02] border-b border-white/[0.06] flex items-center justify-between">
+                          <h3 className="font-heading text-lg font-bold text-white">Admissions Alerts</h3>
+                          {unreadNotes.length > 0 && (
+                            <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+                          )}
+                        </div>
+                        <div className="p-4 divide-y divide-white/[0.05] overflow-y-auto flex-1 font-body">
+                          {unreadNotes.length === 0 ? (
+                            <div className="text-center text-xs text-slate-500 py-8">
+                              No recent notifications.
                             </div>
-                            {!note.isRead && (
-                              <button 
-                                onClick={() => markNotificationRead(note._id)}
-                                className="text-[10px] text-slate-400 hover:text-white font-bold font-heading"
-                              >
-                                Dismiss
-                              </button>
-                            )}
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
+                          ) : (
+                            unreadNotes.map((note) => {
+                              const tokenMatch = note.message.match(/verify_token_([a-f0-9]+)/);
+                              const verificationToken = tokenMatch ? tokenMatch[1] : null;
+
+                              return (
+                                <div 
+                                  key={note._id} 
+                                  className="py-3 flex justify-between items-start gap-2 bg-white/[0.03] -mx-4 px-4 border-l-2 border-saffron"
+                                >
+                                  <div className="flex-1">
+                                    <p className="text-xs font-bold text-saffron">{note.title}</p>
+                                    <p className="text-xs text-slate-300 mt-0.5 leading-relaxed">
+                                      {verificationToken 
+                                        ? note.message.split('verify_token_')[0] + 'Verification System'
+                                        : note.message
+                                      }
+                                    </p>
+
+                                    {verificationToken && (
+                                      <button
+                                        onClick={async () => {
+                                          try {
+                                            const res = await fetch(`/api/auth/verify-email/${verificationToken}`);
+                                            const text = await res.text();
+                                            let data = {};
+                                            try {
+                                              data = JSON.parse(text);
+                                            } catch (e) {
+                                              throw new Error('Server returned an invalid response. Please try again.');
+                                            }
+                                            if (res.ok) {
+                                              alert(data.message || 'Verification successful!');
+                                              await markNotificationRead(note._id);
+                                              useAppStore.getState().checkSession();
+                                            } else {
+                                              alert(data.message || 'Verification failed.');
+                                            }
+                                          } catch (err) {
+                                            console.error(err);
+                                            alert(err.message || 'Failed to verify.');
+                                          }
+                                        }}
+                                        className="mt-2 bg-gradient-to-r from-saffron to-amber-500 hover:from-amber-500 hover:to-saffron text-navy px-3 py-1 rounded font-heading font-extrabold text-[10px] uppercase tracking-wide hover:scale-105 active:scale-95 transition-all shadow-md shadow-saffron/10"
+                                      >
+                                        Verify Email Now
+                                      </button>
+                                    )}
+
+                                    <span className="text-[9px] text-slate-500 block mt-1">
+                                      {new Date(note.createdAt).toLocaleDateString()}
+                                    </span>
+                                  </div>
+                                  <button 
+                                    onClick={() => markNotificationRead(note._id)}
+                                    className="text-[10px] text-slate-400 hover:text-white font-bold font-heading"
+                                  >
+                                    Dismiss
+                                  </button>
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
 
               </div>
