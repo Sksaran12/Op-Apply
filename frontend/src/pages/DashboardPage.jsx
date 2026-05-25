@@ -178,7 +178,7 @@ export default function DashboardPage() {
                         </thead>
                         <tbody className="divide-y divide-white/[0.05] text-sm font-body">
                           {applications.map((app) => (
-                            <tr key={app.id} className="hover:bg-white/[0.02] transition-colors">
+                            <tr key={app._id} className="hover:bg-white/[0.02] transition-colors">
                               <td className="px-6 py-4 font-semibold text-slate-100">
                                 {app.exam.name}
                               </td>
@@ -191,7 +191,7 @@ export default function DashboardPage() {
                               <td className="px-6 py-4">
                                 {(app.status === 'APPROVED' || app.status === 'ADMIT_CARD_ISSUED') ? (
                                   <button
-                                    onClick={() => handleDownloadAdmitCard(app.id)}
+                                    onClick={() => handleDownloadAdmitCard(app._id)}
                                     className="bg-gradient-to-r from-saffron to-amber-500 hover:from-amber-500 hover:to-saffron text-navy px-4 py-2 rounded-lg font-heading font-bold text-xs hover:scale-105 active:scale-95 transition-all duration-300 shadow-md shadow-saffron/20 hover:shadow-saffron/40 flex items-center gap-1.5"
                                   >
                                     <span className="material-symbols-outlined text-xs">download</span>
@@ -265,7 +265,7 @@ export default function DashboardPage() {
 
                         return (
                           <div 
-                            key={note.id} 
+                            key={note._id} 
                             className={`py-3 flex justify-between items-start gap-2 ${!note.isRead ? 'bg-white/[0.03] -mx-4 px-4 border-l-2 border-saffron' : ''}`}
                           >
                             <div className="flex-1">
@@ -291,7 +291,7 @@ export default function DashboardPage() {
                                       }
                                       if (res.ok) {
                                         alert(data.message || 'Verification successful!');
-                                        await markNotificationRead(note.id);
+                                        await markNotificationRead(note._id);
                                         useAppStore.getState().checkSession();
                                       } else {
                                         alert(data.message || 'Verification failed.');
@@ -313,7 +313,7 @@ export default function DashboardPage() {
                             </div>
                             {!note.isRead && (
                               <button 
-                                onClick={() => markNotificationRead(note.id)}
+                                onClick={() => markNotificationRead(note._id)}
                                 className="text-[10px] text-slate-400 hover:text-white font-bold font-heading"
                               >
                                 Dismiss
@@ -380,7 +380,7 @@ export default function DashboardPage() {
             )}
 
             {(() => {
-              const selectedExam = exams.find(e => e.id === selectedExamId);
+              const selectedExam = exams.find(e => e._id === selectedExamId);
               
               const applyLinks = {
                 NEET: 'https://neet.nta.nic.in/',
@@ -416,7 +416,7 @@ export default function DashboardPage() {
                     >
                       <option value="" className="bg-slate-950 text-slate-100">-- Choose Exam --</option>
                       {exams.map(e => (
-                        <option key={e.id} value={e.id} className="bg-slate-950 text-slate-100">
+                        <option key={e._id} value={e._id} className="bg-slate-950 text-slate-100">
                           {e.code} - {e.name} (₹{e.applicationFee})
                         </option>
                       ))}

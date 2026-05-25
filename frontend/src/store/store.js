@@ -299,7 +299,7 @@ export const useAppStore = create((set, get) => ({
       if (res.ok) {
         set(state => ({
           notifications: state.notifications.map(n =>
-            n.id === id ? { ...n, isRead: true } : n
+            n._id === id ? { ...n, isRead: true } : n
           )
         }));
       }

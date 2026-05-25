@@ -37,7 +37,7 @@ export default function Sidebar({ activeTab, setActiveTab, onOpenApplyModal, isO
           {profile?.fullName || 'Academic Candidate'}
         </h4>
         <span className="text-xs text-slate-400 mt-1">
-          ID: OP-2026-{(profile?.id || '9981').substring(0, 4).toUpperCase()}
+          ID: OP-2026-{(profile?._id || '9981').substring(0, 4).toUpperCase()}
         </span>
         
         {/* Profile Completion Badge */}
