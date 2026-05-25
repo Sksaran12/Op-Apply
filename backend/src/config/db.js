@@ -1,23 +1,16 @@
-import { PrismaClient } from '@prisma/client';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import mongoose from 'mongoose';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-if (!process.env.DATABASE_URL) {
-  // Resolve absolute path to the local dev.db file
-  const dbPath = path.resolve(__dirname, '../../prisma/dev.db');
-  process.env.DATABASE_URL = `file:${dbPath}`;
-  console.log(`[Database] DATABASE_URL env not found. Fallback to SQLite: ${process.env.DATABASE_URL}`);
-}
-
-const prisma = new PrismaClient({
-  datasources: {
-    db: {
-      url: process.env.DATABASE_URL
-    }
+const connectDB = async () => {
+  try {
+    const connString = process.env.MONGODB_URI || 'mongodb://localhost:27017/op-apply';
+    console.log('[Database] Connecting to MongoDB...');
+    const conn = await mongoose.connect(connString);
+    console.log(`[Database] MongoDB Connected: ${conn.connection.host}`);
+    return conn;
+  } catch (error) {
+    console.error(`[Database Error] MongoDB connection failure: ${error.message}`);
+    process.exit(1);
   }
-});
+};
 
-export default prisma;
+export default connectDB;

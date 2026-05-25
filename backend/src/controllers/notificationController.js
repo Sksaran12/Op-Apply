@@ -1,11 +1,9 @@
-import prisma from '../config/db.js';
+import Notification from '../models/Notification.js';
 
 export const getNotifications = async (req, res) => {
   try {
-    const notifications = await prisma.notification.findMany({
-      where: { userId: req.user.id },
-      orderBy: { createdAt: 'desc' }
-    });
+    const notifications = await Notification.find({ userId: req.user._id })
+      .sort({ createdAt: -1 });
     return res.json(notifications);
   } catch (error) {
     console.error('[Get Notifications Error]', error);
@@ -18,26 +16,22 @@ export const markAsRead = async (req, res) => {
 
   try {
     // Confirm ownership
-    const notification = await prisma.notification.findUnique({
-      where: { id }
-    });
+    const notification = await Notification.findById(id);
 
     if (!notification) {
       return res.status(404).json({ message: 'Notification not found' });
     }
 
-    if (notification.userId !== req.user.id) {
+    if (notification.userId.toString() !== req.user._id.toString()) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
-    const updatedNotification = await prisma.notification.update({
-      where: { id },
-      data: { isRead: true }
-    });
+    notification.isRead = true;
+    await notification.save();
 
     return res.json({
       message: 'Notification marked as read',
-      notification: updatedNotification
+      notification
     });
   } catch (error) {
     console.error('[Mark Notification Read Error]', error);

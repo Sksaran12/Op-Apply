@@ -1,10 +1,8 @@
-import prisma from '../config/db.js';
+import Exam from '../models/Exam.js';
 
 export const getExams = async (req, res) => {
   try {
-    const exams = await prisma.exam.findMany({
-      orderBy: { examDate: 'asc' }
-    });
+    const exams = await Exam.find().sort({ examDate: 1 });
     return res.json(exams);
   } catch (error) {
     console.error('[Get Exams Error]', error);
@@ -16,9 +14,7 @@ export const getExamById = async (req, res) => {
   const { id } = req.params;
 
   try {
-    const exam = await prisma.exam.findUnique({
-      where: { id }
-    });
+    const exam = await Exam.findById(id);
 
     if (!exam) {
       return res.status(404).json({ message: 'Exam not found' });

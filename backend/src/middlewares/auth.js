@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken';
-import prisma from '../config/db.js';
+import User from '../models/User.js';
 
 export const protect = async (req, res, next) => {
   let token;
@@ -19,16 +19,7 @@ export const protect = async (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'op_apply_jwt_secret_key_2026_xyz');
     
     // Inject user details into request
-    const user = await prisma.user.findUnique({
-      where: { id: decoded.userId },
-      select: {
-        id: true,
-        email: true,
-        isVerified: true,
-        createdAt: true,
-        profile: true
-      }
-    });
+    const user = await User.findById(decoded.userId).populate('profile');
 
     if (!user) {
       return res.status(401).json({ message: 'User not found' });

@@ -1,5 +1,8 @@
 import PDFDocument from 'pdfkit';
-import prisma from '../config/db.js';
+import Exam from '../models/Exam.js';
+import User from '../models/User.js';
+import Application from '../models/Application.js';
+import Notification from '../models/Notification.js';
 import notificationService from '../services/notificationService.js';
 
 export const submitApplication = async (req, res) => {
@@ -11,16 +14,13 @@ export const submitApplication = async (req, res) => {
 
   try {
     // 1. Find Exam
-    const exam = await prisma.exam.findUnique({ where: { id: examId } });
+    const exam = await Exam.findById(examId);
     if (!exam) {
       return res.status(404).json({ message: 'Exam not found' });
     }
 
-    // 2. Check if user profile is complete (must have name, phone, address, educational details, photo, and signature)
-    const user = await prisma.user.findUnique({
-      where: { id: req.user.id },
-      include: { profile: true }
-    });
+    // 2. Check if user profile is complete
+    const user = await User.findById(req.user._id).populate('profile');
 
     if (!user.profile || !user.profile.fullName || !user.profile.phone || !user.profile.address || !user.profile.board || !user.profile.highSchoolMarks || !user.profile.higherSecondaryMarks || !user.profile.photoUrl || !user.profile.signatureUrl) {
       return res.status(400).json({
@@ -28,7 +28,7 @@ export const submitApplication = async (req, res) => {
       });
     }
 
-    // 3. Check for highest educational details (graduation marks) for graduate/PG level exams (UGC NET, SLET, APSC)
+    // 3. Check for highest educational details for graduate/PG level exams
     const pgExams = ['UGC_NET', 'SLET', 'APSC'];
     if (pgExams.includes(exam.code) && !user.profile.graduationMarks) {
       return res.status(400).json({
@@ -37,13 +37,9 @@ export const submitApplication = async (req, res) => {
     }
 
     // 4. Check if application already exists for this user and exam
-    const existingApplication = await prisma.application.findUnique({
-      where: {
-        userId_examId: {
-          userId: req.user.id,
-          examId
-        }
-      }
+    const existingApplication = await Application.findOne({
+      userId: req.user._id,
+      examId
     });
 
     if (existingApplication) {
@@ -56,24 +52,22 @@ export const submitApplication = async (req, res) => {
       return res.status(400).json({ message: 'The application window for this exam is currently closed.' });
     }
 
-    // 4. Generate unique application number (e.g. SEVA-NEET-723A8C)
+    // 4. Generate unique application number
     const randomHex = Math.random().toString(16).substring(2, 8).toUpperCase();
     const applicationNumber = `OP-${exam.code}-${randomHex}`;
 
     // 5. Create Application
-    const application = await prisma.application.create({
-      data: {
-        applicationNumber,
-        userId: req.user.id,
-        examId,
-        status: 'APPLIED'
-      },
-      include: {
-        exam: true
-      }
+    const application = new Application({
+      applicationNumber,
+      userId: req.user._id,
+      examId,
+      status: 'APPLIED'
     });
+    await application.save();
 
-    // 6. Send application submit notification (email and db)
+    const applicationWithExam = await Application.findById(application._id).populate('exam');
+
+    // 6. Send application submit notification
     notificationService.sendApplicationSubmittedEmail(
       user.email,
       user.profile.fullName,
@@ -81,17 +75,15 @@ export const submitApplication = async (req, res) => {
       applicationNumber
     ).catch(console.error);
 
-    await prisma.notification.create({
-      data: {
-        userId: req.user.id,
-        title: 'Application Registered',
-        message: `Your application for ${exam.name} (${applicationNumber}) has been registered as Applied from the official main office website.`
-      }
+    await Notification.create({
+      userId: req.user._id,
+      title: 'Application Registered',
+      message: `Your application for ${exam.name} (${applicationNumber}) has been registered as Applied from the official main office website.`
     });
 
     return res.status(201).json({
       message: 'Application registered successfully',
-      application
+      application: applicationWithExam
     });
   } catch (error) {
     console.error('[Submit Application Error]', error);
@@ -101,11 +93,9 @@ export const submitApplication = async (req, res) => {
 
 export const getUserApplications = async (req, res) => {
   try {
-    const applications = await prisma.application.findMany({
-      where: { userId: req.user.id },
-      include: { exam: true },
-      orderBy: { submittedAt: 'desc' }
-    });
+    const applications = await Application.find({ userId: req.user._id })
+      .populate('exam')
+      .sort({ createdAt: -1 });
     return res.json(applications);
   } catch (error) {
     console.error('[Get Applications Error]', error);
@@ -117,21 +107,20 @@ export const downloadAdmitCard = async (req, res) => {
   const { id } = req.params;
 
   try {
-    const application = await prisma.application.findUnique({
-      where: { id },
-      include: {
-        exam: true,
-        user: {
-          include: { profile: true }
-        }
-      }
-    });
+    const application = await Application.findById(id)
+      .populate('exam')
+      .populate({
+        path: 'userId',
+        populate: { path: 'profile' }
+      });
 
     if (!application) {
       return res.status(404).json({ message: 'Application not found' });
     }
 
-    if (application.userId !== req.user.id) {
+    const userObj = application.userId;
+
+    if (userObj._id.toString() !== req.user._id.toString()) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
@@ -176,11 +165,11 @@ export const downloadAdmitCard = async (req, res) => {
     // Left: Candidate Info
     doc.font('Helvetica-Bold').fontSize(11).text('CANDIDATE PROFILE', 50, 195);
     doc.font('Helvetica').fontSize(10);
-    doc.text(`Full Name: ${application.user.profile?.fullName || 'Candidate'}`, 50, 215);
-    doc.text(`Email Address: ${application.user.email}`, 50, 230);
-    doc.text(`Phone No: ${application.user.profile?.phone || 'N/A'}`, 50, 245);
-    doc.text(`Gender: ${application.user.profile?.gender || 'N/A'}`, 50, 260);
-    doc.text(`Category Group: ${application.user.profile?.category || 'General'}`, 50, 275);
+    doc.text(`Full Name: ${userObj.profile?.fullName || 'Candidate'}`, 50, 215);
+    doc.text(`Email Address: ${userObj.email}`, 50, 230);
+    doc.text(`Phone No: ${userObj.profile?.phone || 'N/A'}`, 50, 245);
+    doc.text(`Gender: ${userObj.profile?.gender || 'N/A'}`, 50, 260);
+    doc.text(`Category Group: ${userObj.profile?.category || 'General'}`, 50, 275);
 
     // Right: Center & Schedule Info
     doc.font('Helvetica-Bold').fontSize(11).text('HALL TICKET DETAILS', 320, 195);

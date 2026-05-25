@@ -1,7 +1,9 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
-import prisma from '../config/db.js';
+import User from '../models/User.js';
+import Profile from '../models/Profile.js';
+import Notification from '../models/Notification.js';
 import notificationService from '../services/notificationService.js';
 
 // Helpers to generate tokens
@@ -32,7 +34,7 @@ export const register = async (req, res) => {
 
   try {
     // Check if user exists
-    const existingUser = await prisma.user.findUnique({ where: { email } });
+    const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({ message: 'User with this email already exists' });
     }
@@ -45,52 +47,47 @@ export const register = async (req, res) => {
     const verificationToken = crypto.randomBytes(32).toString('hex');
     const verificationTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
-    // Create user and empty profile profile details
-    const newUser = await prisma.user.create({
-      data: {
-        email,
-        password: hashedPassword,
-        verificationToken,
-        verificationTokenExpires,
-        profile: {
-          create: {
-            fullName,
-            dateOfBirth: new Date(),
-            gender: 'Not Specified',
-            category: 'General',
-            phone: '',
-            address: '',
-            highSchoolMarks: 0,
-            higherSecondaryMarks: 0,
-            board: ''
-          }
-        }
-      },
-      include: {
-        profile: true
-      }
+    // Create user
+    const newUser = new User({
+      email,
+      password: hashedPassword,
+      verificationToken,
+      verificationTokenExpires
     });
+    await newUser.save();
+
+    // Create empty profile details
+    const newProfile = new Profile({
+      userId: newUser._id,
+      fullName,
+      dateOfBirth: new Date(),
+      gender: 'Not Specified',
+      category: 'General',
+      phone: '',
+      address: '',
+      highSchoolMarks: 0,
+      higherSecondaryMarks: 0,
+      board: ''
+    });
+    await newProfile.save();
 
     // Send emails (welcome & verification) in background
     notificationService.sendWelcomeEmail(newUser.email, fullName).catch(console.error);
     notificationService.sendVerificationEmail(newUser.email, verificationToken).catch(console.error);
 
-    // Create database notification with verification link so it's accessible directly in-app
-    await prisma.notification.create({
-      data: {
-        userId: newUser.id,
-        title: 'Welcome! Verify Your Email',
-        message: `Welcome to OP.Apply! Since this is a local development environment, use this link to verify your email directly: verify_token_${verificationToken}`
-      }
+    // Create database notification with verification link
+    await Notification.create({
+      userId: newUser._id,
+      title: 'Welcome! Verify Your Email',
+      message: `Welcome to OP.Apply! Since this is a local development environment, use this link to verify your email directly: verify_token_${verificationToken}`
     });
 
-    // Return success without signing in directly (requires verification or sign in)
     return res.status(201).json({
       message: 'Registration successful. Verify your email in-app or check console logs.',
       user: {
-        id: newUser.id,
+        id: newUser._id,
         email: newUser.email,
-        fullName: newUser.profile.fullName
+        fullName: newProfile.fullName
       }
     });
   } catch (error) {
@@ -107,10 +104,7 @@ export const login = async (req, res) => {
   }
 
   try {
-    const user = await prisma.user.findUnique({
-      where: { email },
-      include: { profile: true }
-    });
+    const user = await User.findOne({ email }).populate('profile');
 
     if (!user || !user.password) {
       return res.status(400).json({ message: 'Invalid credentials' });
@@ -123,8 +117,8 @@ export const login = async (req, res) => {
     }
 
     // Generate tokens
-    const accessToken = generateAccessToken(user.id);
-    const refreshToken = generateRefreshToken(user.id);
+    const accessToken = generateAccessToken(user._id);
+    const refreshToken = generateRefreshToken(user._id);
 
     // Set refresh token in HTTP-only cookie
     res.cookie('refreshToken', refreshToken, setCookieOptions);
@@ -134,7 +128,7 @@ export const login = async (req, res) => {
       message: 'Login successful',
       accessToken,
       user: {
-        id: user.id,
+        id: user._id,
         email: user.email,
         isVerified: user.isVerified,
         fullName: user.profile?.fullName || ''
@@ -147,61 +141,51 @@ export const login = async (req, res) => {
 };
 
 export const googleOAuth = async (req, res) => {
-  const { token, email, name, googleId } = req.body;
-  // If credentials are empty or mock is triggered, we simulate
+  const { email, name, googleId } = req.body;
+  
   if (!email || !googleId) {
     return res.status(400).json({ message: 'Google email and account ID are required' });
   }
 
   try {
     // Check if user exists by email or googleId
-    let user = await prisma.user.findFirst({
-      where: {
-        OR: [
-          { email },
-          { googleId }
-        ]
-      },
-      include: { profile: true }
-    });
+    let user = await User.findOne({ $or: [{ email }, { googleId }] }).populate('profile');
 
     if (!user) {
       // Create OAuth user
-      user = await prisma.user.create({
-        data: {
-          email,
-          googleId,
-          isVerified: true, // Google accounts are auto-verified
-          profile: {
-            create: {
-              fullName: name || 'Google Candidate',
-              dateOfBirth: new Date(),
-              gender: 'Not Specified',
-              category: 'General',
-              phone: '',
-              address: '',
-              highSchoolMarks: 0,
-              higherSecondaryMarks: 0,
-              board: ''
-            }
-          }
-        },
-        include: { profile: true }
+      user = new User({
+        email,
+        googleId,
+        isVerified: true // Google accounts are auto-verified
       });
-      
-      notificationService.sendWelcomeEmail(user.email, user.profile.fullName).catch(console.error);
+      await user.save();
+
+      const profile = new Profile({
+        userId: user._id,
+        fullName: name || 'Google Candidate',
+        dateOfBirth: new Date(),
+        gender: 'Not Specified',
+        category: 'General',
+        phone: '',
+        address: '',
+        highSchoolMarks: 0,
+        higherSecondaryMarks: 0,
+        board: ''
+      });
+      await profile.save();
+      user.profile = profile; // Attach for returning user payload
+
+      notificationService.sendWelcomeEmail(user.email, profile.fullName).catch(console.error);
     } else if (!user.googleId) {
       // Link Google Account to existing email account
-      user = await prisma.user.update({
-        where: { id: user.id },
-        data: { googleId, isVerified: true },
-        include: { profile: true }
-      });
+      user.googleId = googleId;
+      user.isVerified = true;
+      await user.save();
     }
 
     // Generate tokens
-    const accessToken = generateAccessToken(user.id);
-    const refreshToken = generateRefreshToken(user.id);
+    const accessToken = generateAccessToken(user._id);
+    const refreshToken = generateRefreshToken(user._id);
 
     res.cookie('refreshToken', refreshToken, setCookieOptions);
     res.cookie('accessToken', accessToken, setCookieOptions);
@@ -210,7 +194,7 @@ export const googleOAuth = async (req, res) => {
       message: 'Google Login successful',
       accessToken,
       user: {
-        id: user.id,
+        id: user._id,
         email: user.email,
         isVerified: user.isVerified,
         fullName: user.profile?.fullName || ''
@@ -233,12 +217,12 @@ export const refresh = async (req, res) => {
     const decoded = jwt.verify(token, process.env.JWT_REFRESH_SECRET || 'op_apply_jwt_refresh_secret_key_2026_abc');
     
     // Check if user exists
-    const user = await prisma.user.findUnique({ where: { id: decoded.userId } });
+    const user = await User.findById(decoded.userId);
     if (!user) {
       return res.status(401).json({ message: 'Invalid session' });
     }
 
-    const newAccessToken = generateAccessToken(user.id);
+    const newAccessToken = generateAccessToken(user._id);
     res.cookie('accessToken', newAccessToken, setCookieOptions);
 
     return res.json({
@@ -264,10 +248,7 @@ export const forgotPassword = async (req, res) => {
   }
 
   try {
-    const user = await prisma.user.findUnique({
-      where: { email },
-      include: { profile: true }
-    });
+    const user = await User.findOne({ email });
 
     if (!user) {
       // To prevent account harvesting, return success even if user not found
@@ -278,10 +259,9 @@ export const forgotPassword = async (req, res) => {
     const resetToken = crypto.randomBytes(32).toString('hex');
     const resetTokenExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
 
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { resetToken, resetTokenExpires }
-    });
+    user.resetToken = resetToken;
+    user.resetTokenExpires = resetTokenExpires;
+    await user.save();
 
     // Send password reset email
     await notificationService.sendPasswordResetEmail(user.email, resetToken);
@@ -301,13 +281,9 @@ export const resetPassword = async (req, res) => {
   }
 
   try {
-    const user = await prisma.user.findFirst({
-      where: {
-        resetToken: token,
-        resetTokenExpires: {
-          gt: new Date()
-        }
-      }
+    const user = await User.findOne({
+      resetToken: token,
+      resetTokenExpires: { $gt: new Date() }
     });
 
     if (!user) {
@@ -318,15 +294,10 @@ export const resetPassword = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(newPassword, salt);
 
-    // Update user profile fields
-    await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        password: hashedPassword,
-        resetToken: null,
-        resetTokenExpires: null
-      }
-    });
+    user.password = hashedPassword;
+    user.resetToken = null;
+    user.resetTokenExpires = null;
+    await user.save();
 
     return res.json({ message: 'Password updated successfully. Please login with your new password.' });
   } catch (error) {
@@ -343,13 +314,9 @@ export const verifyEmail = async (req, res) => {
   }
 
   try {
-    const user = await prisma.user.findFirst({
-      where: {
-        verificationToken: token,
-        verificationTokenExpires: {
-          gt: new Date()
-        }
-      }
+    const user = await User.findOne({
+      verificationToken: token,
+      verificationTokenExpires: { $gt: new Date() }
     });
 
     if (!user) {
@@ -357,14 +324,10 @@ export const verifyEmail = async (req, res) => {
     }
 
     // Mark as verified
-    await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        isVerified: true,
-        verificationToken: null,
-        verificationTokenExpires: null
-      }
-    });
+    user.isVerified = true;
+    user.verificationToken = null;
+    user.verificationTokenExpires = null;
+    await user.save();
 
     return res.json({ message: 'Email verification successful. Your account is now active.' });
   } catch (error) {

@@ -1,4 +1,4 @@
-import prisma from '../config/db.js';
+import Profile from '../models/Profile.js';
 import { uploadDocument } from '../config/storage.js';
 
 // Helper to calculate profile completion percentage
@@ -33,9 +33,7 @@ const calculateCompletion = (profile) => {
 
 export const getProfile = async (req, res) => {
   try {
-    const profile = await prisma.profile.findUnique({
-      where: { userId: req.user.id }
-    });
+    const profile = await Profile.findOne({ userId: req.user._id });
 
     if (!profile) {
       return res.status(404).json({ message: 'Profile not found' });
@@ -44,7 +42,7 @@ export const getProfile = async (req, res) => {
     const completionPercentage = calculateCompletion(profile);
 
     return res.json({
-      ...profile,
+      ...profile.toObject(),
       completionPercentage
     });
   } catch (error) {
@@ -95,17 +93,22 @@ export const updateProfile = async (req, res) => {
     if (photoUrl !== undefined) updateData.photoUrl = photoUrl;
     if (signatureUrl !== undefined) updateData.signatureUrl = signatureUrl;
 
-    const updatedProfile = await prisma.profile.update({
-      where: { userId: req.user.id },
-      data: updateData
-    });
+    const updatedProfile = await Profile.findOneAndUpdate(
+      { userId: req.user._id },
+      { $set: updateData },
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedProfile) {
+      return res.status(404).json({ message: 'Profile not found' });
+    }
 
     const completionPercentage = calculateCompletion(updatedProfile);
 
     return res.json({
       message: 'Profile updated successfully',
       profile: {
-        ...updatedProfile,
+        ...updatedProfile.toObject(),
         completionPercentage
       }
     });

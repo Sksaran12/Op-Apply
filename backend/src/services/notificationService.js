@@ -1,5 +1,8 @@
 import { sendMail } from '../config/mailer.js';
-import prisma from '../config/db.js';
+import User from '../models/User.js';
+import Exam from '../models/Exam.js';
+import Application from '../models/Application.js';
+import Notification from '../models/Notification.js';
 
 // Base HTML wrapper to keep templates responsive and themed with Saffron/Navy
 const emailWrapper = (title, content) => `
@@ -188,35 +191,25 @@ export const startDeadlineReminderCron = () => {
       const targetDateStart = new Date(threeDaysLater.setHours(0, 0, 0, 0));
       const targetDateEnd = new Date(threeDaysLater.setHours(23, 59, 59, 999));
       
-      const closingExams = await prisma.exam.findMany({
-        where: {
-          endDate: {
-            gte: targetDateStart,
-            lte: targetDateEnd
-          }
+      const closingExams = await Exam.find({
+        endDate: {
+          $gte: targetDateStart,
+          $lte: targetDateEnd
         }
       });
       
       for (const exam of closingExams) {
-        // Find users who have NOT completed application for this exam, or find everyone registered to alert them
-        // Let's send an alert to all registered users who haven't submitted an application for this exam
-        const users = await prisma.user.findMany({
-          where: {
-            applications: {
-              none: {
-                examId: exam.id
-              }
-            },
-            profile: {
-              isNot: null
-            }
-          },
-          include: {
-            profile: true
-          }
-        });
+        // Find users who have applied for this exam
+        const appliedUsers = await Application.find({ examId: exam._id }).distinct('userId');
+
+        // Find users who have NOT applied for this exam
+        const users = await User.find({
+          _id: { $nin: appliedUsers }
+        }).populate('profile');
         
         for (const user of users) {
+          if (!user.profile) continue; // Skip users without profiles
+          
           console.log(`[Scheduler] Sending deadline reminder for ${exam.code} to ${user.email}`);
           await notificationService.sendDeadlineReminderEmail(
             user.email,
@@ -226,12 +219,10 @@ export const startDeadlineReminderCron = () => {
           );
           
           // Create database notification record
-          await prisma.notification.create({
-            data: {
-              userId: user.id,
-              title: `${exam.code} Deadline Reminder`,
-              message: `The registration window for ${exam.code} closes in 3 days. Apply now!`
-            }
+          await Notification.create({
+            userId: user._id,
+            title: `${exam.code} Deadline Reminder`,
+            message: `The registration window for ${exam.code} closes in 3 days. Apply now!`
           });
         }
       }
