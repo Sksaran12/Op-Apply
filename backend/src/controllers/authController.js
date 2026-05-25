@@ -131,6 +131,7 @@ export const login = async (req, res) => {
     return res.json({
       message: 'Login successful',
       accessToken,
+      refreshToken,
       user: {
         id: user._id,
         email: user.email,
@@ -197,6 +198,7 @@ export const googleOAuth = async (req, res) => {
     return res.json({
       message: 'Google Login successful',
       accessToken,
+      refreshToken,
       user: {
         id: user._id,
         email: user.email,

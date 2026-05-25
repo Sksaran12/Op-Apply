@@ -9,14 +9,22 @@ const safeParseJson = async (res) => {
   }
 };
 
+const getAuthHeaders = (extraHeaders = {}) => {
+  const token = localStorage.getItem('accessToken');
+  return {
+    ...extraHeaders,
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+  };
+};
+
 export const useAppStore = create((set, get) => ({
   // --- AUTH STATE ---
   user: null,
   isAuthenticated: false,
   authLoading: true,
   authError: null,
-
-
+  accessToken: localStorage.getItem('accessToken') || null,
+  refreshToken: localStorage.getItem('refreshToken') || null,
 
   login: async (email, password) => {
     set({ authLoading: true, authError: null });
@@ -30,6 +38,15 @@ export const useAppStore = create((set, get) => ({
       
       if (!res.ok) throw new Error(data.message || 'Login failed');
       
+      if (data.accessToken) {
+        localStorage.setItem('accessToken', data.accessToken);
+        set({ accessToken: data.accessToken });
+      }
+      if (data.refreshToken) {
+        localStorage.setItem('refreshToken', data.refreshToken);
+        set({ refreshToken: data.refreshToken });
+      }
+
       set({ user: data.user, isAuthenticated: true, authLoading: false });
       return { success: true };
     } catch (err) {
@@ -70,6 +87,15 @@ export const useAppStore = create((set, get) => ({
 
       if (!res.ok) throw new Error(data.message || 'Google Login failed');
 
+      if (data.accessToken) {
+        localStorage.setItem('accessToken', data.accessToken);
+        set({ accessToken: data.accessToken });
+      }
+      if (data.refreshToken) {
+        localStorage.setItem('refreshToken', data.refreshToken);
+        set({ refreshToken: data.refreshToken });
+      }
+
       set({ user: data.user, isAuthenticated: true, authLoading: false });
       return { success: true };
     } catch (err) {
@@ -80,20 +106,34 @@ export const useAppStore = create((set, get) => ({
 
   logout: async () => {
     try {
-      await fetch('/api/auth/logout', { method: 'POST' });
+      const headers = getAuthHeaders();
+      await fetch('/api/auth/logout', { 
+        method: 'POST',
+        headers
+      });
     } catch (e) {
       console.error('Logout request failed', e);
     }
-    set({ user: null, isAuthenticated: false, profile: null, applications: [], notifications: [] });
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    set({ 
+      user: null, 
+      isAuthenticated: false, 
+      profile: null, 
+      applications: [], 
+      notifications: [],
+      accessToken: null,
+      refreshToken: null
+    });
   },
 
   checkSession: async () => {
     set({ authLoading: true });
     try {
-      const res = await fetch('/api/profile');
+      const headers = getAuthHeaders();
+      const res = await fetch('/api/profile', { headers });
       if (res.ok) {
         const profile = await safeParseJson(res);
-        // Set basic user info if profile retrieved successfully
         set({
           user: { id: profile.userId, email: '', fullName: profile.fullName, isVerified: true },
           profile,
@@ -101,25 +141,44 @@ export const useAppStore = create((set, get) => ({
           authLoading: false
         });
       } else {
-        // Try refresh token
-        const refreshRes = await fetch('/api/auth/refresh', { method: 'POST' });
-        if (refreshRes.ok) {
-          const profileRes = await fetch('/api/profile');
-          if (profileRes.ok) {
-            const profile = await safeParseJson(profileRes);
-            set({
-              user: { id: profile.userId, email: '', fullName: profile.fullName, isVerified: true },
-              profile,
-              isAuthenticated: true,
-              authLoading: false
-            });
-            return;
+        // Try refresh token using request body
+        const rt = localStorage.getItem('refreshToken');
+        if (rt) {
+          const refreshRes = await fetch('/api/auth/refresh', { 
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ refreshToken: rt })
+          });
+          if (refreshRes.ok) {
+            const refreshData = await safeParseJson(refreshRes);
+            if (refreshData.accessToken) {
+              localStorage.setItem('accessToken', refreshData.accessToken);
+              set({ accessToken: refreshData.accessToken });
+              
+              const profileRes = await fetch('/api/profile', { 
+                headers: getAuthHeaders() 
+              });
+              if (profileRes.ok) {
+                const profile = await safeParseJson(profileRes);
+                set({
+                  user: { id: profile.userId, email: '', fullName: profile.fullName, isVerified: true },
+                  profile,
+                  isAuthenticated: true,
+                  authLoading: false
+                });
+                return;
+              }
+            }
           }
         }
-        set({ user: null, isAuthenticated: false, authLoading: false });
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        set({ user: null, isAuthenticated: false, authLoading: false, accessToken: null, refreshToken: null });
       }
     } catch (err) {
-      set({ user: null, isAuthenticated: false, authLoading: false });
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      set({ user: null, isAuthenticated: false, authLoading: false, accessToken: null, refreshToken: null });
     }
   },
 
@@ -130,7 +189,7 @@ export const useAppStore = create((set, get) => ({
   fetchProfile: async () => {
     set({ profileLoading: true });
     try {
-      const res = await fetch('/api/profile');
+      const res = await fetch('/api/profile', { headers: getAuthHeaders() });
       const data = await safeParseJson(res);
       if (!res.ok) throw new Error(data.message);
       set({ profile: data, profileLoading: false });
@@ -145,7 +204,7 @@ export const useAppStore = create((set, get) => ({
     try {
       const res = await fetch('/api/profile', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(profileData)
       });
       const data = await safeParseJson(res);
@@ -165,7 +224,7 @@ export const useAppStore = create((set, get) => ({
   fetchExams: async () => {
     set({ examsLoading: true });
     try {
-      const res = await fetch('/api/exams');
+      const res = await fetch('/api/exams', { headers: getAuthHeaders() });
       const data = await safeParseJson(res);
       set({ exams: data, examsLoading: false });
     } catch (err) {
@@ -181,7 +240,7 @@ export const useAppStore = create((set, get) => ({
   fetchApplications: async () => {
     set({ applicationsLoading: true });
     try {
-      const res = await fetch('/api/applications');
+      const res = await fetch('/api/applications', { headers: getAuthHeaders() });
       const data = await safeParseJson(res);
       set({ applications: data, applicationsLoading: false });
     } catch (err) {
@@ -195,7 +254,7 @@ export const useAppStore = create((set, get) => ({
     try {
       const res = await fetch('/api/applications', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ examId })
       });
       const data = await safeParseJson(res);
@@ -222,7 +281,7 @@ export const useAppStore = create((set, get) => ({
   fetchNotifications: async () => {
     set({ notificationsLoading: true });
     try {
-      const res = await fetch('/api/notifications');
+      const res = await fetch('/api/notifications', { headers: getAuthHeaders() });
       const data = await safeParseJson(res);
       set({ notifications: data, notificationsLoading: false });
     } catch (err) {
@@ -234,7 +293,8 @@ export const useAppStore = create((set, get) => ({
   markNotificationRead: async (id) => {
     try {
       const res = await fetch(`/api/notifications/${id}/read`, {
-        method: 'PUT'
+        method: 'PUT',
+        headers: getAuthHeaders()
       });
       if (res.ok) {
         set(state => ({
