@@ -411,6 +411,19 @@ export default function LandingPage({ onOpenAuth, onApplyExam }) {
                 </ul>
               </div>
 
+              <div>
+                <h4 className="text-white font-heading font-semibold text-base mb-1">Official Commission Website</h4>
+                <a 
+                  href={selectedExploreExam.applyLink} 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="text-saffron hover:underline flex items-center gap-1 font-semibold text-sm"
+                >
+                  <span className="material-symbols-outlined text-sm">open_in_new</span>
+                  {selectedExploreExam.applyLink}
+                </a>
+              </div>
+
               <div className="pt-4 border-t border-white/[0.06] flex flex-col gap-3">
                 {isAuthenticated ? (
                   <button

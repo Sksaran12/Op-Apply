@@ -51,7 +51,6 @@ const profileSchema = new mongoose.Schema({
   },
   board: {
     type: String,
-    required: true,
     default: ''
   },
   graduationMarks: {

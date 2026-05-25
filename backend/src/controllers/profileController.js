@@ -33,10 +33,23 @@ const calculateCompletion = (profile) => {
 
 export const getProfile = async (req, res) => {
   try {
-    const profile = await Profile.findOne({ userId: req.user._id });
+    let profile = await Profile.findOne({ userId: req.user._id });
 
     if (!profile) {
-      return res.status(404).json({ message: 'Profile not found' });
+      const defaultName = req.user.email ? req.user.email.split('@')[0] : 'Academic Candidate';
+      profile = new Profile({
+        userId: req.user._id,
+        fullName: defaultName.charAt(0).toUpperCase() + defaultName.slice(1),
+        dateOfBirth: new Date(),
+        gender: 'Not Specified',
+        category: 'General',
+        phone: '',
+        address: '',
+        highSchoolMarks: 0,
+        higherSecondaryMarks: 0,
+        board: ''
+      });
+      await profile.save();
     }
 
     const completionPercentage = calculateCompletion(profile);
