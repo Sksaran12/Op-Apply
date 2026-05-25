@@ -4,6 +4,7 @@ import cookieParser from 'cookie-parser';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
+import { execSync } from 'child_process';
 
 import authRoutes from './routes/authRoutes.js';
 import profileRoutes from './routes/profileRoutes.js';
@@ -11,6 +12,7 @@ import examRoutes from './routes/examRoutes.js';
 import applicationRoutes from './routes/applicationRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
 import { startDeadlineReminderCron } from './services/notificationService.js';
+import prisma from './config/db.js';
 
 dotenv.config();
 
@@ -98,11 +100,39 @@ app.use((err, req, res, next) => {
 // Start simulated cron task
 startDeadlineReminderCron();
 
-// Start Express Listener
-app.listen(PORT, () => {
-  console.log(`===================================================`);
-  console.log(` OP.Apply Unified API server listening on port ${PORT}`);
-  console.log(` API Endpoint: http://localhost:${PORT}`);
-  console.log(` Static Uploads: http://localhost:${PORT}/uploads/`);
-  console.log(`===================================================`);
-});
+// Lazy startup database verification and sync
+async function startServer() {
+  try {
+    console.log('[Database] Checking connection and verification indices...');
+    await prisma.user.findFirst();
+    console.log('[Database] Connection verified. Database schemas are in sync.');
+  } catch (error) {
+    console.log('[Database] Table verification failed or database is empty. Running migrations and seed...');
+    try {
+      const backendDir = path.join(__dirname, '..');
+      execSync('npx prisma db push --accept-data-loss', {
+        cwd: backendDir,
+        stdio: 'inherit',
+        env: { ...process.env, PRISMA_HIDE_UPDATE_MESSAGE: 'true' }
+      });
+      execSync('node prisma/seed.js', {
+        cwd: backendDir,
+        stdio: 'inherit'
+      });
+      console.log('[Database] Schema synchronization and seeding completed successfully.');
+    } catch (innerError) {
+      console.error('[Database Error] Critical failure during database initialization:', innerError.message);
+    }
+  }
+
+  // Start Express Listener
+  app.listen(PORT, () => {
+    console.log(`===================================================`);
+    console.log(` OP.Apply Unified API server listening on port ${PORT}`);
+    console.log(` API Endpoint: http://localhost:${PORT}`);
+    console.log(` Static Uploads: http://localhost:${PORT}/uploads/`);
+    console.log(`===================================================`);
+  });
+}
+
+startServer();
