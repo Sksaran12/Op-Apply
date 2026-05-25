@@ -1,5 +1,14 @@
 import { create } from 'zustand';
 
+const safeParseJson = async (res) => {
+  const text = await res.text();
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    throw new Error('The server is currently waking up on Render. Please wait 10-15 seconds and try again.');
+  }
+};
+
 export const useAppStore = create((set, get) => ({
   // --- AUTH STATE ---
   user: null,
@@ -17,7 +26,7 @@ export const useAppStore = create((set, get) => ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
       });
-      const data = await res.json();
+      const data = await safeParseJson(res);
       
       if (!res.ok) throw new Error(data.message || 'Login failed');
       
@@ -37,7 +46,7 @@ export const useAppStore = create((set, get) => ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password, fullName })
       });
-      const data = await res.json();
+      const data = await safeParseJson(res);
 
       if (!res.ok) throw new Error(data.message || 'Registration failed');
 
@@ -57,7 +66,7 @@ export const useAppStore = create((set, get) => ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, name, googleId })
       });
-      const data = await res.json();
+      const data = await safeParseJson(res);
 
       if (!res.ok) throw new Error(data.message || 'Google Login failed');
 
@@ -83,7 +92,7 @@ export const useAppStore = create((set, get) => ({
     try {
       const res = await fetch('/api/profile');
       if (res.ok) {
-        const profile = await res.json();
+        const profile = await safeParseJson(res);
         // Set basic user info if profile retrieved successfully
         set({
           user: { id: profile.userId, email: '', fullName: profile.fullName, isVerified: true },
@@ -97,7 +106,7 @@ export const useAppStore = create((set, get) => ({
         if (refreshRes.ok) {
           const profileRes = await fetch('/api/profile');
           if (profileRes.ok) {
-            const profile = await profileRes.json();
+            const profile = await safeParseJson(profileRes);
             set({
               user: { id: profile.userId, email: '', fullName: profile.fullName, isVerified: true },
               profile,
@@ -122,7 +131,7 @@ export const useAppStore = create((set, get) => ({
     set({ profileLoading: true });
     try {
       const res = await fetch('/api/profile');
-      const data = await res.json();
+      const data = await safeParseJson(res);
       if (!res.ok) throw new Error(data.message);
       set({ profile: data, profileLoading: false });
     } catch (err) {
@@ -139,7 +148,7 @@ export const useAppStore = create((set, get) => ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(profileData)
       });
-      const data = await res.json();
+      const data = await safeParseJson(res);
       if (!res.ok) throw new Error(data.message);
       set({ profile: data.profile, profileLoading: false });
       return { success: true };
@@ -157,7 +166,7 @@ export const useAppStore = create((set, get) => ({
     set({ examsLoading: true });
     try {
       const res = await fetch('/api/exams');
-      const data = await res.json();
+      const data = await safeParseJson(res);
       set({ exams: data, examsLoading: false });
     } catch (err) {
       console.error('Error fetching exams', err);
@@ -173,7 +182,7 @@ export const useAppStore = create((set, get) => ({
     set({ applicationsLoading: true });
     try {
       const res = await fetch('/api/applications');
-      const data = await res.json();
+      const data = await safeParseJson(res);
       set({ applications: data, applicationsLoading: false });
     } catch (err) {
       console.error('Error fetching applications', err);
@@ -189,7 +198,7 @@ export const useAppStore = create((set, get) => ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ examId })
       });
-      const data = await res.json();
+      const data = await safeParseJson(res);
 
       if (!res.ok) throw new Error(data.message || 'Submission failed');
 
@@ -214,7 +223,7 @@ export const useAppStore = create((set, get) => ({
     set({ notificationsLoading: true });
     try {
       const res = await fetch('/api/notifications');
-      const data = await res.json();
+      const data = await safeParseJson(res);
       set({ notifications: data, notificationsLoading: false });
     } catch (err) {
       console.error('Error fetching notifications', err);
