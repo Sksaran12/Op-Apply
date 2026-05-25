@@ -20,9 +20,31 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// CORS setup supporting credential cookies from the Vite development server
+// CORS setup supporting credential cookies from development and production environments
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:5000',
+  'https://op-apply-git-main-saran-mandals-projects.vercel.app',
+  'https://op-apply.onrender.com'
+];
+
+if (process.env.FRONTEND_URL) {
+  const envOrigin = process.env.FRONTEND_URL.replace(/\/$/, '');
+  if (!allowedOrigins.includes(envOrigin)) {
+    allowedOrigins.push(envOrigin);
+  }
+}
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    const cleanOrigin = origin.replace(/\/$/, '');
+    if (allowedOrigins.includes(cleanOrigin) || cleanOrigin.endsWith('.vercel.app')) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -34,6 +56,10 @@ app.use(cookieParser());
 
 // Serve static profile uploads
 app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));
+
+// Serve static frontend files (unified deploy fallback)
+const frontendPath = path.join(__dirname, '../../frontend/dist');
+app.use(express.static(frontendPath));
 
 // Mount API endpoints
 app.use('/api/auth', authRoutes);
@@ -48,6 +74,18 @@ app.get('/api/status', (req, res) => {
     status: 'online',
     timestamp: new Date(),
     service: 'OP.Apply Unified API Server'
+  });
+});
+
+// Wildcard catch-all to route to React's index.html for frontend routing
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api') || req.path.startsWith('/uploads')) {
+    return next();
+  }
+  res.sendFile(path.join(frontendPath, 'index.html'), (err) => {
+    if (err) {
+      next();
+    }
   });
 });
 

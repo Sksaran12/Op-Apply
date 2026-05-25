@@ -128,12 +128,12 @@ export default function LandingPage({ onOpenAuth, onApplyExam }) {
 
           {/* Right Status Card Mockup */}
           <motion.div 
-            className="hidden lg:block relative"
+            className="block relative w-full max-w-md mx-auto lg:max-w-none mt-12 lg:mt-0"
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.4, duration: 0.8 }}
           >
-            <div className="glass-panel p-8 rounded-2xl border border-white/[0.08] relative z-10 animate-float shadow-2xl bg-slate-950/45">
+            <div className="glass-panel p-6 sm:p-8 rounded-2xl border border-white/[0.08] relative z-10 animate-float shadow-2xl bg-slate-950/45">
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-white text-lg font-bold font-heading">Unified Tracking System</h3>
                 <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5">
@@ -176,8 +176,8 @@ export default function LandingPage({ onOpenAuth, onApplyExam }) {
             </div>
             
             {/* Tech accents */}
-            <div className="absolute -top-8 -right-8 w-24 h-24 border-t-2 border-r-2 border-saffron/20 rounded-tr-2xl" />
-            <div className="absolute -bottom-8 -left-8 w-24 h-24 border-b-2 border-l-2 border-white/5 rounded-bl-2xl" />
+            <div className="hidden sm:block absolute -top-8 -right-8 w-24 h-24 border-t-2 border-r-2 border-saffron/20 rounded-tr-2xl" />
+            <div className="hidden sm:block absolute -bottom-8 -left-8 w-24 h-24 border-b-2 border-l-2 border-white/5 rounded-bl-2xl" />
           </motion.div>
         </div>
       </section>

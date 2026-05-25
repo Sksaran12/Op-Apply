@@ -282,7 +282,13 @@ export default function DashboardPage() {
                                   onClick={async () => {
                                     try {
                                       const res = await fetch(`/api/auth/verify-email/${verificationToken}`);
-                                      const data = await res.json();
+                                      const text = await res.text();
+                                      let data = {};
+                                      try {
+                                        data = JSON.parse(text);
+                                      } catch (e) {
+                                        throw new Error('Server returned an invalid response. Please try again.');
+                                      }
                                       if (res.ok) {
                                         alert(data.message || 'Verification successful!');
                                         await markNotificationRead(note.id);
@@ -292,7 +298,7 @@ export default function DashboardPage() {
                                       }
                                     } catch (err) {
                                       console.error(err);
-                                      alert('Failed to verify.');
+                                      alert(err.message || 'Failed to verify.');
                                     }
                                   }}
                                   className="mt-2 bg-gradient-to-r from-saffron to-amber-500 hover:from-amber-500 hover:to-saffron text-navy px-3 py-1 rounded font-heading font-extrabold text-[10px] uppercase tracking-wide hover:scale-105 active:scale-95 transition-all shadow-md shadow-saffron/10"
